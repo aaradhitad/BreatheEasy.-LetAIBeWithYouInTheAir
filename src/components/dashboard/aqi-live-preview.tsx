@@ -1,215 +1,136 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { MapIcon, Loader2 } from 'lucide-react';
+import { useEffect, useRef } from "react";
+import { Badge } from "@/components/ui/badge";
 
-interface AQIPoint {
-  lat: number;
-  lon: number;
-  aqi: number;
-  name?: string;
-}
-
-const AQILivePreview = () => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [aqiPoints, setAqiPoints] = useState<AQIPoint[]>([]);
+export function AQILivePreview() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    let baseLayer: any;
-    let aqiLayer: any;
-    let markersLayer: any;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const initMap = async () => {
-      if (!containerRef.current || mapRef.current) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size
+    canvas.width = 280;
+    canvas.height = 120;
+
+    // Create a mini map preview
+    const drawMiniMap = () => {
+      // Clear canvas
+      ctx.fillStyle = '#0f172a'; // slate-900
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw grid pattern
+      ctx.strokeStyle = '#334155'; // slate-600
+      ctx.lineWidth = 0.5;
       
-      try {
-        const L = await import('leaflet');
+      // Vertical lines
+      for (let x = 0; x <= canvas.width; x += 20) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      
+      // Horizontal lines
+      for (let y = 0; y <= canvas.height; y += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Draw some sample AQI points
+      const samplePoints = [
+        { x: 50, y: 30, aqi: 45, color: '#10b981' },   // Green - Good
+        { x: 120, y: 45, aqi: 78, color: '#f59e0b' },  // Orange - Moderate
+        { x: 200, y: 60, aqi: 125, color: '#ef4444' }, // Red - Unhealthy
+        { x: 80, y: 80, aqi: 35, color: '#3b82f6' },   // Blue - Good
+        { x: 180, y: 25, aqi: 95, color: '#f97316' },  // Orange - Moderate
+      ];
+
+      samplePoints.forEach(point => {
+        // Draw circle
+        ctx.fillStyle = point.color;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
+        ctx.fill();
         
-        const map = L.map(containerRef.current, {
-          zoomControl: false,
-          attributionControl: false,
-          center: [22.5726, 88.3639], // Kolkata coordinates
-          zoom: 10,
-          preferCanvas: true,
-          dragging: false,
-          touchZoom: false,
-          scrollWheelZoom: false,
-          doubleClickZoom: false,
-          boxZoom: false,
-          keyboard: false,
-        });
+        // Draw border
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Draw AQI number
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(point.aqi.toString(), point.x, point.y + 3);
+      });
 
-        if (!isMounted) return;
-        mapRef.current = map;
+      // Draw legend
+      const legendItems = [
+        { color: '#10b981', label: 'Good' },
+        { color: '#f59e0b', label: 'Moderate' },
+        { color: '#ef4444', label: 'Unhealthy' }
+      ];
 
-        // Use a lighter base map for better visibility
-        baseLayer = L.tileLayer(
-          'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-          {
-            subdomains: 'abcd',
-            maxZoom: 15,
-            opacity: 0.7
-          }
-        ).addTo(map);
-
-        // Fetch live AQI data points
-        const token = process.env.NEXT_PUBLIC_WAQI_TOKEN || 'demo';
-        try {
-          // Get AQI data for a region around Kolkata
-          const boundsUrl = `https://api.waqi.info/map/bounds/?token=${token}&latlng=22.0,87.5,23.0,89.0`;
-          const response = await fetch(boundsUrl);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.data && Array.isArray(data.data)) {
-              const points: AQIPoint[] = data.data
-                .filter((item: any) => item.aqi && item.lat && item.lon)
-                .map((item: any) => ({
-                  lat: item.lat,
-                  lon: item.lon,
-                  aqi: Number(item.aqi),
-                  name: item.station?.name
-                }))
-                .slice(0, 20); // Limit to 20 points for performance
-              
-              if (isMounted) {
-                setAqiPoints(points);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Failed to fetch AQI data:', error);
-          // Fallback to mock data
-          if (isMounted) {
-            setAqiPoints([
-              { lat: 22.5726, lon: 88.3639, aqi: 279, name: 'Kolkata Center' },
-              { lat: 22.5200, lon: 88.3500, aqi: 256, name: 'South Kolkata' },
-              { lat: 22.6200, lon: 88.4000, aqi: 268, name: 'North Kolkata' },
-              { lat: 22.5000, lon: 88.3000, aqi: 227, name: 'West Kolkata' },
-              { lat: 22.6500, lon: 88.4500, aqi: 249, name: 'East Kolkata' },
-            ]);
-          }
-        }
-
-        // Create markers for AQI points
-        if (isMounted) {
-          markersLayer = L.layerGroup();
-          
-          aqiPoints.forEach((point) => {
-            const color = getAQIColor(point.aqi);
-            const size = Math.max(8, Math.min(16, point.aqi / 20));
-            
-            const marker = L.circleMarker([point.lat, point.lon], {
-              radius: size,
-              fillColor: color,
-              color: '#fff',
-              weight: 1,
-              opacity: 0.8,
-              fillOpacity: 0.7
-            });
-
-            // Add AQI value as text
-            const text = L.divIcon({
-              className: 'aqi-text-icon',
-              html: `<div style="
-                background: rgba(0,0,0,0.7); 
-                color: white; 
-                border-radius: 50%; 
-                width: ${size * 2}px; 
-                height: ${size * 2}px; 
-                display: flex; 
-                align-items: center; 
-                justify-content: center; 
-                font-size: ${Math.max(8, size - 4)}px; 
-                font-weight: bold;
-                border: 1px solid white;
-              ">${point.aqi}</div>`,
-              iconSize: [size * 2, size * 2],
-              iconAnchor: [size, size]
-            });
-
-            const textMarker = L.marker([point.lat, point.lon], { icon: text });
-            markersLayer.addLayer(marker);
-            markersLayer.addLayer(textMarker);
-          });
-
-          markersLayer.addTo(map);
-        }
-
-        setIsLoading(false);
-
-      } catch (error) {
-        console.error('Failed to initialize preview map:', error);
-        setIsLoading(false);
-      }
+      legendItems.forEach((item, index) => {
+        const y = 100 + (index * 15);
+        
+        // Color dot
+        ctx.fillStyle = item.color;
+        ctx.beginPath();
+        ctx.arc(20 + (index * 80), y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Label
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(item.label, 30 + (index * 80), y + 3);
+      });
     };
 
-    const cleanupPromise = initMap();
-
-    return () => {
-      isMounted = false;
-      if (cleanupPromise && typeof (cleanupPromise as any) === 'function') {
-        try { (cleanupPromise as any)(); } catch {}
-      }
-      const map = mapRef.current as any;
-      try {
-        if (map) {
-          if (baseLayer) map.removeLayer(baseLayer);
-          if (aqiLayer) map.removeLayer(aqiLayer);
-          if (markersLayer) map.removeLayer(markersLayer);
-          map.remove();
-        }
-      } finally {
-        mapRef.current = null;
-      }
-    };
+    drawMiniMap();
   }, []);
 
-  const getAQIColor = (aqi: number): string => {
-    if (aqi <= 50) return '#22c55e';      // Good - Green
-    if (aqi <= 100) return '#eab308';     // Moderate - Yellow
-    if (aqi <= 150) return '#f97316';     // USG - Orange
-    if (aqi <= 200) return '#ef4444';     // Unhealthy - Red
-    if (aqi <= 300) return '#a855f7';     // Very Unhealthy - Purple
-    return '#7f1d1d';                     // Hazardous - Dark Red
-  };
-
   return (
-    <div className="relative w-full h-full">
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-800/80 rounded-lg z-10">
-          <div className="text-center text-slate-400">
-            <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin" />
-            <p className="text-xs">Loading AQI data...</p>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-300">Live AQI Data</span>
+          {/* Live indicator dot */}
+          <div className="relative">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            <div className="absolute inset-0 w-2 h-2 bg-red-500 rounded-full animate-ping opacity-75"></div>
+            <div className="absolute -inset-1 w-4 h-4 bg-red-500/20 rounded-full blur-sm"></div>
           </div>
         </div>
-      )}
+        <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30">
+          Live
+        </Badge>
+      </div>
       
-      <div
-        ref={containerRef}
-        className="w-full h-full rounded-lg"
-        style={{ minHeight: '200px' }}
-      />
-      
-      {/* AQI Legend */}
-      <div className="absolute bottom-2 left-2 bg-black/70 rounded px-2 py-1 text-xs text-white">
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-          <span>Good</span>
-          <div className="w-3 h-3 rounded-full bg-yellow-500 ml-2"></div>
-          <span>Mod</span>
-          <div className="w-3 h-3 rounded-full bg-orange-500 ml-2"></div>
-          <span>USG</span>
-          <div className="w-3 h-3 rounded-full bg-red-500 ml-2"></div>
-          <span>Unh</span>
-          <div className="w-3 h-3 rounded-full bg-purple-500 ml-2"></div>
-          <span>VUnh</span>
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          className="w-full h-30 rounded-lg border border-slate-600 bg-slate-900"
+          style={{ height: '120px' }}
+        />
+        
+        {/* Overlay info */}
+        <div className="absolute top-2 right-2 bg-slate-900/80 backdrop-blur-sm rounded px-2 py-1">
+          <span className="text-xs text-slate-300">6 cities</span>
         </div>
+      </div>
+      
+      <div className="text-xs text-slate-400 text-center">
+        Click "View Full Heatmap" for detailed map
       </div>
     </div>
   );
-};
-
-export default AQILivePreview;
+}

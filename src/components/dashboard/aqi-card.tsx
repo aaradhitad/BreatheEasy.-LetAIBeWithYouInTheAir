@@ -21,7 +21,15 @@ export function AqiCard({ aqi }: { aqi: number }) {
     <div className="bg-yellow-500/10 border border-yellow-400/30 p-4 rounded-lg h-full flex flex-col justify-between">
       <div>
         <div className="flex justify-between items-center">
-            <span className="text-sm text-yellow-200/80">Live AQI</span>
+            <div className="flex items-center gap-2">
+              {/* Live indicator dot */}
+              <div className="relative">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 w-2 h-2 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                <div className="absolute -inset-1 w-4 h-4 bg-red-500/20 rounded-full blur-sm"></div>
+              </div>
+              <span className="text-sm text-yellow-200/80">Live AQI</span>
+            </div>
             <Badge className={color}>{level}</Badge>
         </div>
         <div className="text-7xl font-bold text-yellow-300 mt-2">{aqi}</div>

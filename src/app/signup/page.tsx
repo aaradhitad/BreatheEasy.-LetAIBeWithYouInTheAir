@@ -1,159 +1,182 @@
 "use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { registerUser } from "../auth-actions";
 
 const signupSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  username: z.string().min(3, 'Username must be at least 3 characters').max(20, 'Username must be less than 20 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  dob: z.string().min(1, 'Date of birth is required'),
-  gender: z.enum(['male', 'female', 'other', 'prefer-not-to-say']),
-  healthConditions: z.string().optional(),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-type SignupFormValues = z.infer<typeof signupSchema>;
+type SignupForm = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
   const router = useRouter();
-  const { control, handleSubmit, formState: { errors } } = useForm<SignupFormValues>({
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset
+  } = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
-    defaultValues: {
-      name: '',
-      username: '',
-      email: '',
-      password: '',
-      dob: '',
-      gender: 'prefer-not-to-say',
-      healthConditions: '',
-    },
   });
 
-  const onSubmit = (data: SignupFormValues) => {
-    localStorage.setItem('breatheEasyUser', JSON.stringify(data));
-    router.push('/dashboard');
+  const onSubmit = async (data: SignupForm) => {
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const result = await registerUser(data.username, data.email, data.password);
+      
+      if (result.success) {
+        setSuccess(result.message);
+        reset();
+        
+        // Redirect to login after successful signup
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      } else {
+        setError(result.message);
+      }
+    } catch (error) {
+      setError('An unexpected error occurred');
+      console.error('Signup error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white py-8" style={{backgroundImage: "url('/background-hero.svg')", backgroundSize: 'cover', backgroundPosition: 'center'}}>
+    <div className="flex min-h-screen bg-black text-white">
+      {/* Background rectangle with text */}
+      <div className="absolute left-32 top-1/2 transform -translate-y-1/2 w-96 h-64 bg-slate-600/30 rounded-lg flex items-center justify-center p-8 shadow-2xl shadow-cyan-500/20">
+        <div className="text-center">
+          <span className="font-raleway text-2xl text-slate-300">Let </span>
+          <span className="font-montserrat text-6xl text-cyan-500">AI</span>
+          <span className="font-raleway text-2xl text-slate-300"> be with you in the </span>
+          <span className="font-montserrat text-6xl text-cyan-500">Air</span>
+          <span className="font-raleway text-2xl text-slate-300">.</span>
+        </div>
+      </div>
+
       <div className="flex-1"></div>
+      
       <div className="flex items-center justify-center w-full max-w-md p-8 mr-16">
         <Card className="w-full bg-slate-900/80 backdrop-blur-sm border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-cyan-400">Sign Up</CardTitle>
-          <CardDescription className="text-slate-400">Create an account to get personalized health recommendations.</CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Controller
-                name="name"
-                control={control}
-                render={({ field }) => <Input id="name" {...field} className="bg-slate-800 border-slate-700" />}
-              />
-              {errors.name && <p className="text-sm text-red-400">{errors.name.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Controller
-                name="username"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="username"
-                    type="text"
-                    placeholder="e.g., john_doe"
-                    {...field}
-                    className="bg-slate-800 border-slate-700"
-                  />
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
+            <CardDescription className="text-center text-slate-400">
+              Enter your details to get started
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Enter your username"
+                  {...register("username")}
+                  className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400"
+                />
+                {errors.username && (
+                  <p className="text-sm text-red-400">{errors.username.message}</p>
                 )}
-              />
-              {errors.username && <p className="text-sm text-red-400">{errors.username.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Controller
-                name="email"
-                control={control}
-                render={({ field }) => <Input id="email" type="email" placeholder="m@example.com" {...field} className="bg-slate-800 border-slate-700" />}
-              />
-              {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Controller
-                name="password"
-                control={control}
-                render={({ field }) => <Input id="password" type="password" {...field} className="bg-slate-800 border-slate-700" />}
-              />
-              {errors.password && <p className="text-sm text-red-400">{errors.password.message}</p>}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dob">Date of Birth</Label>
-                  <Controller
-                    name="dob"
-                    control={control}
-                    render={({ field }) => <Input id="dob" type="date" {...field} className="bg-slate-800 border-slate-700" />}
-                  />
-                  {errors.dob && <p className="text-sm text-red-400">{errors.dob.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  {...register("email")}
+                  className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400"
+                />
+                {errors.email && (
+                  <p className="text-sm text-red-400">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  {...register("password")}
+                  className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400"
+                />
+                {errors.password && (
+                  <p className="text-sm text-red-400">{errors.password.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm your password"
+                  {...register("confirmPassword")}
+                  className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400"
+                />
+                {errors.confirmPassword && (
+                  <p className="text-sm text-red-400">{errors.confirmPassword.message}</p>
+                )}
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                  <p className="text-sm text-red-400">{error}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Gender</Label>
-                  <Controller
-                    name="gender"
-                    control={control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger id="gender" className="bg-slate-800 border-slate-700">
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                          <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.gender && <p className="text-sm text-red-400">{errors.gender.message}</p>}
+              )}
+
+              {success && (
+                <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
+                  <p className="text-sm text-green-400">{success}</p>
                 </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="healthConditions">Existing Health Conditions</Label>
-              <Controller
-                name="healthConditions"
-                control={control}
-                render={({ field }) => <Textarea id="healthConditions" placeholder="e.g., Asthma, Allergies" {...field} className="bg-slate-800 border-slate-700" />}
-              />
-              {errors.healthConditions && <p className="text-sm text-red-400">{errors.healthConditions.message}</p>}
+              )}
+
+              <Button
+                type="submit"
+                className="w-full bg-cyan-600 hover:bg-cyan-700 text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? "Creating Account..." : "Create Account"}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-slate-400">
+                Already have an account?{" "}
+                <Link href="/login" className="text-cyan-400 hover:text-cyan-300 font-medium">
+                  Sign in
+                </Link>
+              </p>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-600 border-cyan-500 text-white rounded-lg">
-              Create Account
-            </Button>
-            <p className="text-sm text-center text-slate-400">
-              Already have an account?{' '}
-              <Link href="/login" className="text-cyan-400 hover:underline">
-                Login
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
         </Card>
       </div>
     </div>

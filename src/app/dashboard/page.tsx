@@ -19,15 +19,14 @@ import { Input } from "@/components/ui/input";
 import dynamic from "next/dynamic";
 const AQIHeatmap = dynamic(() => import("@/components/dashboard/aqi-heatmap"), { ssr: false });
 import AQISimple from "@/components/dashboard/aqi-simple";
-import CitySilhouetteBackground from "@/components/dashboard/city-silhouette";
+import DarkMapBackground from "@/components/dashboard/dark-map-background";
 import { AqiHistoryChart } from "@/components/dashboard/aqi-history";
 import { AqiForecastChart } from "@/components/dashboard/aqi-forecast";
 import { Mascot } from "@/components/dashboard/mascot";
 import { WeatherAnimation } from "@/components/dashboard/weather-animation";
 import { TopStatesSidebar } from "@/components/dashboard/top-cities";
-import type { TopState } from "@/components/dashboard/top-cities";
 import { AccountMenu } from "@/components/dashboard/account-menu";
-
+import { AQINews } from "@/components/dashboard/aqi-news";
 
 const MOCK_DATA = {
     location: "Kolkata, West Bengal, India",
@@ -36,9 +35,20 @@ const MOCK_DATA = {
 };
 
 interface User {
-  name: string;
+  _id: string;
   username: string;
+  email: string;
   healthConditions?: string;
+}
+
+interface SavedItem {
+  id: string;
+  timestamp: Date;
+  aqi: number;
+  location: string;
+  weather: string;
+  recommendations: string[];
+  isLiked: boolean;
 }
 
 export default function Dashboard() {
@@ -54,37 +64,130 @@ export default function Dashboard() {
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [aqiHistory, setAqiHistory] = useState<{ date: string; value: number }[]>([]);
   const [aqiForecast, setAqiForecast] = useState<{ date: string; value: number }[]>([]);
-  const [topStates, setTopStates] = useState<TopState[]>([]);
   const [countryName, setCountryName] = useState<string | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+  const [currentRecommendations, setCurrentRecommendations] = useState<string[]>([]);
+  const [isItemSaved, setIsItemSaved] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('breatheEasyUser');
-    if (!storedUser) {
-      router.replace('/login');
-    } else {
-      const userData = JSON.parse(storedUser);
-      
-      // Handle migration for existing users who don't have username
-      if (!userData.username) {
-        // Generate a username from the name if it doesn't exist
-        const generatedUsername = userData.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-        const updatedUser = { ...userData, username: generatedUsername };
-        localStorage.setItem('breatheEasyUser', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-      } else {
-        setUser(userData);
+    // Check if user is logged in
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        // Ensure user data is properly structured and doesn't contain MongoDB buffer data
+        const cleanUserData: User = {
+          _id: userData._id || userData.id || Date.now().toString(),
+          username: userData.username || userData.name || '',
+          email: userData.email || '',
+          healthConditions: userData.healthConditions || ''
+        };
+        setUser(cleanUserData);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('user');
+        router.replace('/login');
       }
+    } else {
+      router.replace('/login');
     }
   }, [router]);
 
+  // Check if current data is already saved
+  useEffect(() => {
+    const isAlreadySaved = savedItems.some(item => 
+      item.aqi === aqi && 
+      item.location === locationName && 
+      item.weather === weatherStr
+    );
+    setIsItemSaved(isAlreadySaved);
+  }, [aqi, locationName, weatherStr, savedItems]);
+
   const handleLogout = () => {
-    localStorage.removeItem('breatheEasyUser');
+    localStorage.removeItem('user');
+    setUser(null);
     router.replace('/login');
+  };
+
+  const handleProfileUpdated = (updatedUser: any) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   const handleNewRecommendation = (log: AlertLog) => {
     setHistory((prevHistory) => [log, ...prevHistory]);
+    
+    // Extract recommendations from the log
+    if (log.recommendation) {
+      setCurrentRecommendations([log.recommendation]);
+    }
+  };
+
+  const handleSaveItem = () => {
+    // Check if current data is already saved
+    const isAlreadySaved = savedItems.some(item => 
+      item.aqi === aqi && 
+      item.location === locationName && 
+      item.weather === weatherStr
+    );
+
+    if (isAlreadySaved) {
+      // Remove the item if it's already saved
+      setSavedItems(prev => prev.filter(item => 
+        !(item.aqi === aqi && item.location === locationName && item.weather === weatherStr)
+      ));
+      setIsItemSaved(false);
+      console.log('Item removed from saved!');
+    } else {
+      // Add new item
+      const newSavedItem: SavedItem = {
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        aqi: aqi,
+        location: locationName,
+        weather: weatherStr,
+        recommendations: currentRecommendations,
+        isLiked: true
+      };
+      
+      setSavedItems(prev => [newSavedItem, ...prev]);
+      setIsItemSaved(true);
+      console.log('Item saved successfully!');
+      
+      // Reset the saved state after 2 seconds
+      setTimeout(() => setIsItemSaved(false), 2000);
+    }
+  };
+
+  const handleShareItem = async () => {
+    const shareData = {
+      title: `AQI Report - ${locationName}`,
+      text: `Current AQI: ${aqi} - ${getAqiDescription(aqi)}. Weather: ${weatherStr}`,
+      url: window.location.href
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: copy to clipboard
+        const textToCopy = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
+        await navigator.clipboard.writeText(textToCopy);
+        console.log('Share data copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const getAqiDescription = (aqi: number): string => {
+    if (aqi <= 50) return 'Good';
+    if (aqi <= 100) return 'Moderate';
+    if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
+    if (aqi <= 200) return 'Unhealthy';
+    if (aqi <= 300) return 'Very Unhealthy';
+    return 'Hazardous';
   };
 
   const focusMap = (lat: number, lon: number, zoom = 10) => {
@@ -303,7 +406,6 @@ export default function Dashboard() {
     if (coords) {
       void fetchAqiHistory(coords.lat, coords.lon);
       void fetchAqiForecast(coords.lat, coords.lon);
-      void fetchTopStates();
     }
   }, [coords]);
 
@@ -356,119 +458,7 @@ export default function Dashboard() {
     return typeof state === 'string' ? state : null;
   };
 
-  const fetchTopStates = async () => {
-    try {
-      const token = process.env.NEXT_PUBLIC_WAQI_TOKEN || 'demo';
-      let country = countryName;
-      if (!country && locationName) country = extractCountry(locationName);
-      if (!country) {
-        setTopStates([]);
-        return;
-      }
-      const byState = new Map<string, { sum: number; count: number }>();
 
-      // Prefer bounded results by country bbox to avoid cross-country leakage
-      const bbox = await getCountryBoundingBox(country);
-      let stations: Array<{ lat: number; lon: number; aqi: number; name?: string }> = [];
-      if (bbox) {
-        const { south, west, north, east } = bbox;
-        const boundsUrl = `https://api.waqi.info/map/bounds/?token=${token}&latlng=${south},${west},${north},${east}`;
-        const bRes = await fetch(boundsUrl, { headers: { 'Accept': 'application/json' } });
-        if (bRes.ok) {
-          const bJson = await bRes.json() as any;
-          const data: any[] = Array.isArray(bJson?.data) ? bJson.data : [];
-          stations = data.map((d) => ({ lat: d.lat, lon: d.lon, aqi: Number(d.aqi), name: d.n }))
-                        .filter((s) => Number.isFinite(s.aqi));
-        }
-      }
-
-      // Fallback: keyword search if bounds failed
-      if (stations.length === 0) {
-        const res = await fetch(`https://api.waqi.info/search/?token=${token}&keyword=${encodeURIComponent(country)}`, { headers: { 'Accept': 'application/json' } });
-        if (res.ok) {
-          const json = await res.json() as any;
-          const results: any[] = Array.isArray(json?.data) ? json.data : [];
-          stations = results.map((r): { lat: number; lon: number; aqi: number; name?: string } | null => {
-            const geo = r?.station?.geo as number[] | undefined;
-            const aqiRaw = r?.aqi;
-            const aqiNum = typeof aqiRaw === 'number' ? aqiRaw : (typeof aqiRaw === 'string' ? Number(aqiRaw) : NaN);
-            return (Array.isArray(geo) && geo.length >= 2 && Number.isFinite(aqiNum)) ? { lat: geo[0], lon: geo[1], aqi: aqiNum as number, name: r?.station?.name } : null;
-          }).filter((s): s is { lat: number; lon: number; aqi: number; name?: string } => Boolean(s));
-        }
-      }
-
-      // Aggregate by state using station name heuristic, then enhance via reverse geocoding
-      const cache = new Map<string, string>();
-      for (const s of stations) {
-        let state = 'Unknown';
-        if (s.name && typeof s.name === 'string') {
-          const parts = s.name.split(',').map((p: string) => p.trim());
-          if (parts.length >= 2) state = parts[parts.length - 2];
-        }
-        const prev = byState.get(state) || { sum: 0, count: 0 };
-        byState.set(state, { sum: prev.sum + s.aqi, count: prev.count + 1 });
-      }
-
-      // If Unknown present or fewer than 10 states, reverse geocode subset to refine
-      if (byState.size < 10 || byState.has('Unknown')) {
-        const subset = stations.slice(0, 120);
-        for (let i = 0; i < subset.length; i++) {
-          const s = subset[i];
-          const key = `${s.lat.toFixed(2)},${s.lon.toFixed(2)}`;
-          let st = cache.get(key) || null;
-          if (!st) {
-            try {
-              st = await reverseStateForCoords(s.lat, s.lon);
-              if (st) cache.set(key, st);
-            } catch {}
-          }
-          if (st) {
-            const unknownBucket = byState.get('Unknown');
-            const prev = byState.get(st) || { sum: 0, count: 0 };
-            byState.set(st, { sum: prev.sum + s.aqi, count: prev.count + 1 });
-            if (unknownBucket) byState.set('Unknown', { sum: Math.max(0, unknownBucket.sum - s.aqi), count: Math.max(0, unknownBucket.count - 1) });
-          }
-          if (i % 10 === 0) await new Promise((rsv) => setTimeout(rsv, 120));
-        }
-      }
-
-      let stateEntries: TopState[] = Array.from(byState.entries())
-        .map(([state, { sum, count }]) => ({ state, aqi: Math.round(sum / Math.max(1, count)) }))
-        .sort((a, b) => a.aqi - b.aqi)
-        .slice(0, 10);
-
-      // If states are insufficient or many are 'Unknown', try enhancing by reverse geocoding a subset
-      const haveEnough = stateEntries.length >= 10 && !stateEntries.some(s => s.state === 'Unknown');
-      if (!haveEnough && stations.length > 0) {
-        const cache2 = new Map<string, string>();
-        const subset2 = stations.slice(0, 120);
-        for (let i = 0; i < subset2.length; i++) {
-          const s = subset2[i];
-          const key = `${s.lat.toFixed(2)},${s.lon.toFixed(2)}`;
-          let st = cache2.get(key) || null;
-          if (!st) {
-            try {
-              st = await reverseStateForCoords(s.lat, s.lon);
-              if (st) cache2.set(key, st);
-            } catch {}
-          }
-          if (!st) continue;
-          const prev = byState.get(st) || { sum: 0, count: 0 };
-          byState.set(st, { sum: prev.sum + s.aqi, count: prev.count + 1 });
-          stateEntries = Array.from(byState.entries())
-            .map(([state, { sum, count }]) => ({ state, aqi: Math.round(sum / Math.max(1, count)) }))
-            .sort((a, b) => a.aqi - b.aqi)
-            .slice(0, 10);
-          if (stateEntries.length >= 10 && !stateEntries.some(s => s.state === 'Unknown')) break;
-          if (i % 10 === 0) await new Promise((rsv) => setTimeout(rsv, 120));
-        }
-      }
-
-      setTopStates(stateEntries);
-    } catch {
-      setTopStates([]);
-    }
-  };
 
   const fetchAqiForecast = async (lat: number, lon: number) => {
     // Open-Meteo air-quality 7-day hourly forecast -> daily average PM2.5 -> approximate US AQI
@@ -543,15 +533,15 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white font-sans">
       <AQIHeatmap />
-      <CitySilhouetteBackground />
-      <header className="p-4 px-8 bg-slate-900/70 backdrop-blur-sm border-b border-slate-700 flex justify-between items-center relative z-10">
+      <DarkMapBackground />
+      <header className="p-4 px-8 bg-slate-900/80 backdrop-blur-md border-b border-slate-700 flex justify-between items-center relative z-20">
         <div className="flex items-center gap-8">
-            <h1 className="text-3xl font-bold text-cyan-400">AQI</h1>
+            <h1 className="text-3xl font-bold text-cyan-400">BreatheEasy.</h1>
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 <Input
                   placeholder="Search any Location, City, State or Country"
-                  className="bg-slate-800 border-slate-700 rounded-full w-96 pl-10 pr-24"
+                  className="bg-slate-800/90 border-slate-700 rounded-full w-96 pl-10 pr-24 backdrop-blur-sm"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => {
@@ -577,16 +567,14 @@ export default function Dashboard() {
             )}
         </div>
         <div className="flex items-center gap-6 text-sm">
-            <AccountMenu onProfileUpdated={(u) => {
-              setUser((prev) => prev ? { ...prev, username: u.username, healthConditions: u.healthConditions } : prev);
-            }} />
-            <Button onClick={handleLogout} variant="outline" className="bg-cyan-500 hover:bg-cyan-600 border-cyan-500 text-white rounded-lg">
+            <AccountMenu user={user} onProfileUpdated={handleProfileUpdated} />
+            <Button onClick={handleLogout} variant="outline" className="bg-slate-800/90 hover:bg-slate-700/90 border-slate-700 text-white rounded-lg backdrop-blur-sm">
                 Logout <LogOut className="ml-2 h-4 w-4" />
             </Button>
         </div>
       </header>
-      <main className="p-4 md:p-8 flex justify-center items-start gap-6 relative z-10">
-        <Card className="w-full max-w-5xl bg-slate-900/70 backdrop-blur-md border-slate-700 rounded-2xl shadow-2xl">
+      <main className="p-4 md:p-8 flex justify-center items-start gap-6 relative z-20">
+        <Card className="w-full max-w-5xl bg-slate-900/80 backdrop-blur-lg border-slate-700 rounded-2xl shadow-2xl">
            <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4">
                     <div>
@@ -598,10 +586,26 @@ export default function Dashboard() {
                         <Button onClick={() => void handleLocateMe()} variant="outline" className="rounded-full bg-slate-800 border-slate-700 hover:bg-slate-700">
                             <MapPin className="mr-2 h-4 w-4" /> Locate me
                         </Button>
-                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-700">
-                            <Heart className="h-5 w-5" />
+                        <Button 
+                          onClick={handleSaveItem} 
+                          variant="ghost" 
+                          size="icon" 
+                          className={`rounded-full hover:bg-slate-700 transition-colors ${
+                            isItemSaved 
+                              ? 'text-red-500 bg-red-500/20' 
+                              : 'hover:text-red-400'
+                          }`}
+                          title={isItemSaved ? "Remove from saved" : "Save current AQI data"}
+                        >
+                            <Heart className={`h-5 w-5 ${isItemSaved ? 'fill-current' : ''}`} />
                         </Button>
-                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-700">
+                        <Button 
+                          onClick={handleShareItem} 
+                          variant="ghost" 
+                          size="icon" 
+                          className="rounded-full hover:bg-slate-700 hover:text-cyan-400 transition-colors"
+                          title="Share AQI data"
+                        >
                             <Share2 className="h-5 w-5" />
                         </Button>
                     </div>
@@ -662,17 +666,23 @@ export default function Dashboard() {
                         location={locationName}
                         aqi={aqi}
                         weather={weatherStr}
-                        healthConditions={user.healthConditions}
+                        healthConditions={user?.healthConditions || ''}
                         onNewRecommendation={handleNewRecommendation}
                     />
                     <div className="mt-6">
                       <AqiHistoryChart data={aqiHistory} />
                     </div>
+                    <div className="mt-6">
+                      <AQINews />
+                    </div>
                 </div>
            </CardContent>
         </Card>
         <div className="hidden xl:block w-80">
-          <TopStatesSidebar countryName={countryName} topStates={topStates} aqi={aqi} healthConditions={user.healthConditions} />
+          <TopStatesSidebar 
+            savedItems={savedItems}
+            onRemoveSavedItem={(id: string) => setSavedItems(prev => prev.filter(item => item.id !== id))}
+          />
         </div>
       </main>
       
