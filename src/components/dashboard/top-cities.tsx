@@ -116,57 +116,7 @@ export function TopStatesSidebar({ savedItems, onRemoveSavedItem }: TopStatesSid
         </CardContent>
       </Card>
 
-      {/* AI Solutions for You */}
-      <Card className="bg-slate-900/80 backdrop-blur-lg border-slate-700 shadow-2xl">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg text-cyan-400 flex items-center gap-2">
-            <Brain className="h-5 w-5" />
-            AI Solutions for You
-          </CardTitle>
-          <CardDescription className="text-slate-400 text-sm">
-            Personalized recommendations based on your location
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[
-            {
-              icon: "🌱",
-              title: "Indoor Air Purification",
-              description: "Consider using HEPA air purifiers in your home, especially in bedrooms and living areas."
-            },
-            {
-              icon: "🚶",
-              title: "Outdoor Activity Timing",
-              description: "Limit outdoor activities during peak pollution hours (6-9 AM and 6-9 PM)."
-            },
-            {
-              icon: "🏠",
-              title: "Ventilation Strategy",
-              description: "Open windows during low-pollution periods and use exhaust fans in kitchens and bathrooms."
-            },
-            {
-              icon: "🌿",
-              title: "Natural Air Filters",
-              description: "Add indoor plants like Peace Lily, Spider Plant, and Aloe Vera to naturally purify air."
-            },
-            {
-              icon: "🚗",
-              title: "Transportation Choices",
-              description: "Use public transport or carpool when possible to reduce personal vehicle emissions."
-            }
-          ].map((solution, index) => (
-            <div key={index} className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-cyan-500/50 transition-colors">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">{solution.icon}</span>
-                <div className="flex-1">
-                  <h4 className="font-medium text-white text-sm mb-1">{solution.title}</h4>
-                  <p className="text-slate-400 text-xs leading-relaxed">{solution.description}</p>
-                </div>
-              </div>
-        </div>
-          ))}
-        </CardContent>
-      </Card>
+
 
       {/* Saved Items */}
       {savedItems.length > 0 && (

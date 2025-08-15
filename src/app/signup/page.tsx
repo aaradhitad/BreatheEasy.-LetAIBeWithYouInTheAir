@@ -67,21 +67,42 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-black text-white">
-      {/* Background rectangle with text */}
-      <div className="absolute left-32 top-1/2 transform -translate-y-1/2 w-96 h-64 bg-slate-600/30 rounded-lg flex items-center justify-center p-8 shadow-2xl shadow-cyan-500/20">
-        <div className="text-center">
-          <span className="font-raleway text-2xl text-slate-300">Let </span>
-          <span className="font-montserrat text-6xl text-cyan-500">AI</span>
-          <span className="font-raleway text-2xl text-slate-300"> be with you in the </span>
-          <span className="font-montserrat text-6xl text-cyan-500">Air</span>
-          <span className="font-raleway text-2xl text-slate-300">.</span>
+    <div className="relative min-h-screen bg-black text-white overflow-hidden">
+      {/* Futuristic Background with Vertical Light Beam */}
+      <div className="absolute inset-0">
+        {/* Dark background with subtle warm glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black via-slate-900 to-black"></div>
+        
+        {/* Vertical Light Beam */}
+        <div className="absolute left-1/3 top-0 w-1 h-full">
+          <div className="absolute inset-0 bg-gradient-to-b from-orange-500 via-red-500 to-orange-600 opacity-80 blur-sm"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-orange-400 via-red-400 to-orange-500 opacity-60"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-orange-300 via-red-300 to-orange-400 opacity-40 w-2"></div>
         </div>
+        
+        {/* Subtle purple accent line at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-30"></div>
       </div>
 
-      <div className="flex-1"></div>
-      
-      <div className="flex items-center justify-center w-full max-w-md p-8 mr-16">
+      {/* Main Content Container */}
+      <div className="relative z-10 flex items-center justify-center min-h-screen">
+        {/* Text Content - Left Side */}
+        <div className="absolute left-16 top-1/2 transform -translate-y-1/2 max-w-md">
+          <div className="text-left space-y-2">
+            <h1 className="text-4xl font-bold text-gray-200 leading-tight">
+              Let AI be with you in the
+            </h1>
+            <h2 className="text-5xl font-bold text-gray-200 leading-tight">
+              Air.
+            </h2>
+            <p className="text-sm text-gray-400 mt-4">
+              for Smarter Air Quality Monitoring
+            </p>
+          </div>
+        </div>
+
+        {/* Signup Form - Right Side */}
+        <div className="absolute right-16 top-1/2 transform -translate-y-1/2 w-full max-w-md p-8">
         <Card className="w-full bg-slate-900/80 backdrop-blur-sm border-slate-700">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
@@ -178,6 +199,7 @@ export default function SignupPage() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

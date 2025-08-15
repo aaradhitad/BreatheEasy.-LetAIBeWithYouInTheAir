@@ -27,6 +27,8 @@ import { WeatherAnimation } from "@/components/dashboard/weather-animation";
 import { TopStatesSidebar } from "@/components/dashboard/top-cities";
 import { AccountMenu } from "@/components/dashboard/account-menu";
 import { AQINews } from "@/components/dashboard/aqi-news";
+import { PersonalizedAISolutions } from "@/components/dashboard/personalized-ai-solutions";
+
 
 const MOCK_DATA = {
     location: "Kolkata, West Bengal, India",
@@ -540,7 +542,7 @@ export default function Dashboard() {
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 <Input
-                  placeholder="Search any Location, City, State or Country"
+                  placeholder="Search for cities, states, locations, or countries..."
                   className="bg-slate-800/90 border-slate-700 rounded-full w-96 pl-10 pr-24 backdrop-blur-sm"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -574,7 +576,8 @@ export default function Dashboard() {
         </div>
       </header>
       <main className="p-4 md:p-8 flex justify-center items-start gap-6 relative z-20">
-        <Card className="w-full max-w-5xl bg-slate-900/80 backdrop-blur-lg border-slate-700 rounded-2xl shadow-2xl">
+        <div className="w-full max-w-5xl">
+          <Card className="bg-slate-900/80 backdrop-blur-lg border-slate-700 rounded-2xl shadow-2xl">
            <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4">
                     <div>
@@ -676,9 +679,16 @@ export default function Dashboard() {
                       <AQINews />
                     </div>
                 </div>
-           </CardContent>
+                      </CardContent>
         </Card>
-        <div className="hidden xl:block w-80">
+        </div>
+        <div className="hidden xl:block w-80 space-y-6">
+          <PersonalizedAISolutions
+            aqi={aqi}
+            weather={weatherStr}
+            healthConditions={user?.healthConditions || ''}
+            location={locationName}
+          />
           <TopStatesSidebar 
             savedItems={savedItems}
             onRemoveSavedItem={(id: string) => setSavedItems(prev => prev.filter(item => item.id !== id))}

@@ -2,7 +2,7 @@ import clientPromise from './mongodb';
 import { ObjectId } from 'mongodb';
 
 export interface User {
-  _id?: ObjectId;
+  _id?: string | ObjectId;
   username: string;
   email: string;
   password: string;
@@ -12,7 +12,7 @@ export interface User {
 }
 
 export interface UserWithoutPassword {
-  _id?: ObjectId;
+  _id?: string | ObjectId;
   username: string;
   email: string;
   healthConditions?: string;
@@ -27,46 +27,71 @@ export class UserService {
     return db.collection('users');
   }
 
+  // Helper function to convert MongoDB document to plain object
+  private static toPlainObject(doc: any): any {
+    if (!doc) return null;
+    
+    return {
+      _id: doc._id?.toString() || doc._id,
+      username: doc.username,
+      email: doc.email,
+      password: doc.password,
+      healthConditions: doc.healthConditions,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+
+    };
+  }
+
   static async createUser(userData: Omit<User, '_id' | 'createdAt' | 'updatedAt'>): Promise<User> {
     const collection = await this.getCollection();
     
-    const user: User = {
+    const user: Omit<User, '_id'> = {
       ...userData,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
     const result = await collection.insertOne(user);
-    user._id = result.insertedId;
+    const createdUser: User = {
+      ...user,
+      _id: result.insertedId
+    };
     
-    return user;
+    return this.toPlainObject(createdUser);
   }
 
   static async findUserByEmail(email: string): Promise<User | null> {
     const collection = await this.getCollection();
-    return collection.findOne({ email });
+    const user = await collection.findOne({ email });
+    return user ? this.toPlainObject(user) : null;
   }
 
   static async findUserByUsername(username: string): Promise<User | null> {
     const collection = await this.getCollection();
-    return collection.findOne({ username });
+    const user = await collection.findOne({ username });
+    return user ? this.toPlainObject(user) : null;
   }
 
   static async findUserByEmailOrUsername(emailOrUsername: string): Promise<User | null> {
     const collection = await this.getCollection();
-    return collection.findOne({
+    const user = await collection.findOne({
       $or: [
         { email: emailOrUsername },
         { username: emailOrUsername }
       ]
     });
+    return user ? this.toPlainObject(user) : null;
   }
 
-  static async updateUser(userId: ObjectId, updates: Partial<User>): Promise<boolean> {
+  static async updateUser(userId: string | ObjectId, updates: Partial<User>): Promise<boolean> {
     const collection = await this.getCollection();
     
+    // Convert string ID to ObjectId if needed
+    const objectId = typeof userId === 'string' ? new ObjectId(userId) : userId;
+    
     const result = await collection.updateOne(
-      { _id: userId },
+      { _id: objectId },
       { 
         $set: { 
           ...updates, 
@@ -78,19 +103,26 @@ export class UserService {
     return result.modifiedCount > 0;
   }
 
-  static async deleteUser(userId: ObjectId): Promise<boolean> {
+  static async deleteUser(userId: string | ObjectId): Promise<boolean> {
     const collection = await this.getCollection();
     
-    const result = await collection.deleteOne({ _id: userId });
+    // Convert string ID to ObjectId if needed
+    const objectId = typeof userId === 'string' ? new ObjectId(userId) : userId;
+    
+    const result = await collection.deleteOne({ _id: objectId });
     return result.deletedCount > 0;
   }
 
   static async getAllUsers(): Promise<UserWithoutPassword[]> {
     const collection = await this.getCollection();
     
-    return collection.find(
+    const users = await collection.find(
       {}, 
       { projection: { password: 0 } }
     ).toArray();
+    
+    return users.map(user => this.toPlainObject(user));
   }
+
+
 }
