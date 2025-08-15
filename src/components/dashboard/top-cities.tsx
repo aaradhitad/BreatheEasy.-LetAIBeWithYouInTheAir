@@ -163,7 +163,7 @@ export function TopStatesSidebar({ savedItems, onRemoveSavedItem }: TopStatesSid
                   <p className="text-slate-400 text-xs leading-relaxed">{solution.description}</p>
                 </div>
               </div>
-            </div>
+        </div>
           ))}
         </CardContent>
       </Card>

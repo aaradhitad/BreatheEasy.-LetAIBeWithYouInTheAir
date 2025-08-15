@@ -187,11 +187,11 @@ export function AccountMenu({ user, onProfileUpdated }: AccountMenuProps) {
                     <Label className="text-slate-300">Username</Label>
                     <p className="text-white font-medium">{user.username}</p>
                   </div>
-                  <div>
+                <div>
                     <Label className="text-slate-300">Email</Label>
                     <p className="text-white font-medium">{user.email}</p>
-                  </div>
-                  <div>
+                </div>
+                <div>
                     <Label className="text-slate-300">Health Conditions</Label>
                     <p className="text-white font-medium">
                       {user.healthConditions || 'None specified'}
@@ -231,13 +231,13 @@ export function AccountMenu({ user, onProfileUpdated }: AccountMenuProps) {
                   {error && (
                     <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
                       <p className="text-sm text-red-400">{error}</p>
-                    </div>
+              </div>
                   )}
 
                   {success && (
                     <div className="p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
                       <p className="text-sm text-green-400">{success}</p>
-                    </div>
+              </div>
                   )}
 
                   <div className="flex gap-2">
@@ -255,9 +255,9 @@ export function AccountMenu({ user, onProfileUpdated }: AccountMenuProps) {
                     >
                       Cancel
                     </Button>
-                  </div>
-                </div>
-              )}
+              </div>
+            </div>
+          )}
             </div>
           ) : (
             // Change Password
@@ -293,7 +293,7 @@ export function AccountMenu({ user, onProfileUpdated }: AccountMenuProps) {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="bg-slate-700 border-slate-600 text-white"
                 />
-              </div>
+                </div>
 
               {error && (
                 <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
